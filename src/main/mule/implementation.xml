@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:batch="http://www.mulesoft.org/schema/mule/batch" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="d732c17a-12b3-4632-bb55-abd01262819d" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="123456" database="customer" />
+	</db:config>
+	<flow name="insertflow" doc:id="41229dfb-6ac8-4912-9ac7-4389334bf232" >
+		<ee:transform doc:name="Transform Message" doc:id="7d90fb76-1e68-443a-8d35-fa32d4ac4715" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+import remove from dw::core::Strings
+---
+{
+	"custID": upper((payload.CustomerID) remove " "),
+	"custfname": upper((payload.CustomerFirstName) remove " ") ,
+	"custmname": upper((payload.CustomerMiddleName)remove " "),
+	"custlname": upper((payload.CustomerLastName) remove " "),
+	"add": upper((payload.Address)remove " "),
+	"profes": upper((payload.Profession)remove" ")
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="394556cc-bed7-492a-8a3e-7b1e85ff5b41" variableName="a" />
+		<db:insert doc:name="Insert" doc:id="36409d94-0407-4dad-bccc-a316bfea994f" config-ref="Database_Config">
+			<db:sql ><![CDATA[insert into customerdetails values(:cid,:cfn,:cmn,:cln,:address,:prof)]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	cid: payload.custID,
+	cfn: payload.custfname,
+	cmn: payload.custmname,
+	cln: payload.custlname,
+	address: payload.add,
+	prof: payload.profes
+}]]]></db:input-parameters>
+		</db:insert>
+		<ee:transform doc:name="Transform Message" doc:id="c047420e-5873-43cf-9455-0952057114d5" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<db:insert doc:name="Insert" doc:id="e97d6bdc-cb0a-40a8-9b8a-64d1f9bcd0ee" config-ref="Database_Config">
+			<db:sql ><![CDATA[insert into `customer-address` values(:str,:zip,:state,:country)]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	str: ((vars.a.add)splitBy ",")[0],
+	zip: ((vars.a.add)splitBy ",")[1],
+	state: ((vars.a.add)splitBy ",")[2],
+	country: ((vars.a.add)splitBy ",")[3]
+}]]]></db:input-parameters>
+		</db:insert>
+		<ee:transform doc:name="Transform Message" doc:id="a943398b-bd36-4e05-bdd3-bbeaad6e86cb" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="getflow" doc:id="b1fa8e68-95ee-4957-8e36-e6c5448d2a9e" >
+		<db:select doc:name="Select" doc:id="86dccd40-1cf6-451b-bad2-5856e4671516" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from customerdetails where CID =:cusid]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	cusid: attributes.queryParams.CustomerID
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="001e577d-d721-4734-b93e-c718163b47ff" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
